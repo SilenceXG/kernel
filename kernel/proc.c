@@ -5,6 +5,7 @@
 #include "x86.h"
 #include "proc.h"
 #include "spinlock.h"
+#include "pstat.h"
 
 struct {
   struct spinlock lock;
@@ -443,4 +444,22 @@ procdump(void)
   }
 }
 
+
+int
+getpinfo(struct pstat* pstat)
+{
+    int i = 0;
+    int j = 0;
+    while(i < NPROC){
+        cprintf("Pid %d \n", pstat-> pid[i]);
+        while(j < NLAYER){
+            cprintf("Eclipsed timer ticks on pq %d is %d \n",j, pstat-> ticks[i][j]);
+            ++j;
+        }
+        cprintf("Proc on level  %d \n", pstat-> priority[i]);
+        cprintf("Proc state is  %d \n", pstat-> state[i]);
+        ++i;
+    }
+    return 1;
+}
 
