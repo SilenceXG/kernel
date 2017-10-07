@@ -257,6 +257,20 @@ void
 scheduler(void)
 {
   struct proc *p;
+  // Code for mlfq
+  // 4 level priorities
+  proc lv0[NPROC];
+  proc lv1[NPROC];
+  proc lv2[NPROC];
+  proc lv3[NPROC];
+  int  lv0_free = 0;
+  int  lv1_free = 0
+  int  lv2_free = 0
+  int  lv3_free = 0
+  // initial time ticks
+  const int LV1_TIME = 32;
+  const int LV2_TIME = 16;
+  const int LV3_TIME = 8;
 
   for(;;){
     // Enable interrupts on this processor.
@@ -267,6 +281,19 @@ scheduler(void)
     for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
       if(p->state != RUNNABLE)
         continue;
+      // TODO: add to pq if not inuse
+      else if(p.inuse == 0){
+        lv3[lv3_free ] = p;
+        p.inuse = 1;
+        p.priority = 3;
+        int i = 0;
+        for(i; i < NLAYER; ++i){
+            p.ticks[NLAYER] = 0;
+            p.wait_ticks[NLAYER] = 0;
+        }
+      }
+
+      // select running process from MLFQ 
 
       // Switch to chosen process.  It is the process's job
       // to release ptable.lock and then reacquire it
