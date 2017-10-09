@@ -27,6 +27,7 @@ static void wakeup1(void *chan);
 
 void dequeue(struct proc** pq, int pq_num, int index);
 int check_promote(struct proc* proc);
+
 // 4 level priorities
 struct proc* lv0[NPROC];
 struct proc* lv1[NPROC];
@@ -350,11 +351,6 @@ scheduler(void)
   struct proc *p;
   
   // Code for mlfq
-  // index of the last proc in each queue
-  int  lv0_last = 0;
-  int  lv1_last = 0;
-  int  lv2_last = 0;
-  int  lv3_last = 0;
 
   for(;;){
       // Enable interrupts on this processor.
@@ -398,7 +394,7 @@ scheduler(void)
                 lv2[lv2_num] = proc; 
                 lv2_num++;
             }
-            check_promotion(proc);
+            check_promote(proc);
             /*
             // increment wait time for other RUNNABLE proc
             struct proc *pa;
@@ -469,7 +465,7 @@ scheduler(void)
                lv1_num++;
            }
             
-           jump_status = check_promotion(proc);
+           jump_status = check_promote(proc);
            // clear the wait time for proc
            proc -> wait_ticks[2] = 0;
 
@@ -513,7 +509,7 @@ scheduler(void)
               lv0_num++;
           }
 
-          jump_status = check_promotion(proc);
+          jump_status = check_promote(proc);
           // clear the wait time for proc
           proc -> wait_ticks[1] = 0;
 
@@ -551,7 +547,7 @@ scheduler(void)
             // increment ticks
             (proc -> ticks[0])++;
             // increment the waiting time of other proc
-            check_promotion(proc);
+            check_promote(proc);
             // clear the wait time for proc
             proc -> wait_ticks[0] = 0;
 
