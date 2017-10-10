@@ -420,7 +420,6 @@ scheduler(void)
 int lv3i = 0;
 int lv2i = 0;
 int lv1i = 0;
-int lv0i = 0;
 
 SEARCH:for( ; lv3i < lv3_num; lv3i++){
          if(lv3[lv3i] -> state != RUNNABLE)
@@ -540,7 +539,8 @@ SEARCH:for( ; lv3i < lv3_num; lv3i++){
         goto SEARCH;
     }
 
-    for( ; lv0i < lv0_num; lv0i++ ){
+    // every time in lv0, start with the first proc (FIFO)
+    for( int lv0i = 0; lv0i < lv0_num; lv0i++ ){
         if(lv0[lv0i] -> state != RUNNABLE)
             continue;
         
@@ -551,19 +551,17 @@ SEARCH:for( ; lv3i < lv3_num; lv3i++){
            switchuvm(lv0[lv0i]);
            lv0[lv0i]->state = RUNNING;
            // while proc is RUNNING, keep scheduling it till it finishes (FIFO)
-           while(lv0[lv0i] -> state == RUNNING){
-               swtch(&cpu->scheduler, proc->context);
-               // kernel regain control
-               // clear the wait time for proc
-               lv0[lv0i] -> wait_ticks[0] = 0;
-               // update wait time for other proc
-               check_promote(lv0[lv0i]);
-               // increment wait by 1 (See check_promote routine)
-               (lv0[lv0i] -> wait_ticks[0])++;
-               // increment ticks
-               (lv0[lv0i] -> ticks[0])++;
-               switchkvm();
-           }
+           swtch(&cpu->scheduler, proc->context);
+           // kernel regain control
+           // clear the wait time for proc
+           lv0[lv0i] -> wait_ticks[0] = 0;
+           // update wait time for other proc
+           check_promote(lv0[lv0i]);
+           // increment wait by 1 (See check_promote routine)
+           (lv0[lv0i] -> wait_ticks[0])++;
+           // increment ticks
+           (lv0[lv0i] -> ticks[0])++;
+           switchkvm();
 
         // Process is done running for now.
         // It should have changed its p->state before coming back.
