@@ -43,8 +43,6 @@ const int LV1_TIME = 32;
 const int LV2_TIME = 16;
 const int LV3_TIME = 8;
 
-int q_status = 3;
-
 void
 pinit(void)
 {
@@ -419,34 +417,39 @@ scheduler(void)
     // schedule the RUNNABLE with high priority
     // else, skip it and schedule RUNNABLE after the one previously scheduled
     // For lv3, schedule the process after the one previouly scheduled 
-SEARCH_3:for(int i = 0; i < lv3_num; i++){
-         if(lv3[i] -> state != RUNNABLE)
+int lv3i = 0;
+int lv2i = 0;
+int lv1i = 0;
+int lv0i = 0;
+
+SEARCH:for( ; lv3i < lv3_num; lv3i++){
+         if(lv3[lv3i] -> state != RUNNABLE)
              continue;
          // Switch to chosen process.  It is the process's job
          // to release ptable.lock and then reacquire it
          // before jumping back to us.
-            proc = lv3[i];
-            switchuvm(lv3[i]);
-            lv3[i]->state = RUNNING;
+            proc = lv3[lv3i];
+            switchuvm(lv3[lv3i]);
+            lv3[lv3i]->state = RUNNING;
             swtch(&cpu->scheduler, proc->context);
 
             // kernel regain control
             // clear the wait time for proc
-            lv3[i] -> wait_ticks[3] = 0;
+            lv3[lv3i] -> wait_ticks[3] = 0;
             // update wait time for other proc
-            check_promote(lv3[i]);
+            check_promote(lv3[lv3i]);
             // increment wait by 1 (See check_promote routine)
-            (lv3[i] -> wait_ticks[3])++;
+            (lv3[lv3i] -> wait_ticks[3])++;
 
             // increment ticks
             //cprintf("[PID %d] has done running on level 3, ticks %d\n ", pp -> pid, pp -> ticks[3]);
-            (lv3[i] -> ticks[3])++;
-            if( (lv3[i] -> ticks[3]) >= LV3_TIME){
-                lv3[i] -> priority = 2;
+            (lv3[lv3i] -> ticks[3])++;
+            if( (lv3[lv3i] -> ticks[3]) >= LV3_TIME){
+                lv3[lv3i] -> priority = 2;
                 // remove the proc from lv3
                 // add the proc to lv2
-                dequeue(lv3, lv3_num, i);
-                lv2[lv2_num] = lv3[i];
+                dequeue(lv3, lv3_num, lv3i);
+                lv2[lv2_num] = lv3[lv3i];
                 lv2_num++;
             }
             switchkvm();
@@ -456,35 +459,35 @@ SEARCH_3:for(int i = 0; i < lv3_num; i++){
          //search again
     }
 
-SEARCH_2:for(int i = 0; i < lv2_num; i++ ){
-        if(lv2[i] -> state != RUNNABLE)
+    for( ; lv2i < lv2_num; lv2i++ ){
+        if(lv2[lv2i] -> state != RUNNABLE)
             continue;
         
         // Switch to chosen process.  It is the process's job
         // to release ptable.lock and then reacquire it
         // before jumping back to us.
-           proc = lv2[i];
-           switchuvm(lv2[i]);
-           lv2[i]->state = RUNNING;
+           proc = lv2[lv2i];
+           switchuvm(lv2[lv2i]);
+           lv2[lv2i]->state = RUNNING;
            swtch(&cpu->scheduler, proc->context);
 
            // kernel regain control
            // clear the wait time for proc
-           lv2[i] -> wait_ticks[2] = 0;
+           lv2[lv2i] -> wait_ticks[2] = 0;
            // update wait time for other proc
-           check_promote(lv2[i]);
+           check_promote(lv2[lv2i]);
            // increment wait by 1 (See check_promote routine)
-           (lv2[i] -> wait_ticks[2])++;
+           (lv2[lv2i] -> wait_ticks[2])++;
 
            // increment ticks
            //cprintf("[PID %d] has done running on level 3, ticks %d\n ", pp -> pid, pp -> ticks[3]);
-           (lv2[i] -> ticks[2])++;
-           if( (lv2[i] -> ticks[2]) >= LV2_TIME){
-               lv2[i] -> priority = 1;
+           (lv2[lv2i] -> ticks[2])++;
+           if( (lv2[lv2i] -> ticks[2]) >= LV2_TIME){
+               lv2[lv2i] -> priority = 1;
                // remove the proc from lv2
                // add the proc to lv1
-               dequeue(lv2, lv2_num, i);
-               lv1[lv1_num] = lv2[i];
+               dequeue(lv2, lv2_num, lv2i);
+               lv1[lv1_num] = lv2[lv2i];
                lv1_num++;
            }
            switchkvm();
@@ -492,41 +495,39 @@ SEARCH_2:for(int i = 0; i < lv2_num; i++ ){
         // It should have changed its p->state before coming back.
         proc = 0;
         //search again
-        //if lv3 is empty, searching start from level 2
-        //else goto lv3
-        if(lv3_num > 0)
-            goto SEARCH_3;
+        lv3i = 0;
+        goto SEARCH;
     }
-
-SEARCH_1:for(int i = 0; i < lv1_num; i++ ){
-        if(lv1[i] -> state != RUNNABLE)
+    
+    for( ; lv1i < lv1_num; lv1i++ ){
+        if(lv1[lv1i] -> state != RUNNABLE)
             continue;
         
         // Switch to chosen process.  It is the process's job
         // to release ptable.lock and then reacquire it
         // before jumping back to us.
-           proc = lv1[i];
-           switchuvm(lv1[i]);
-           lv1[i]->state = RUNNING;
+           proc = lv1[lv1i];
+           switchuvm(lv1[lv1i]);
+           lv1[lv1i]->state = RUNNING;
            swtch(&cpu->scheduler, proc->context);
 
            // kernel regain control
            // clear the wait time for proc
-           lv1[i] -> wait_ticks[1] = 0;
+           lv1[lv1i] -> wait_ticks[1] = 0;
            // update wait time for other proc
-           check_promote(lv1[i]);
+           check_promote(lv1[lv1i]);
            // increment wait by 1 (See check_promote routine)
-           (lv1[i] -> wait_ticks[1])++;
+           (lv1[lv1i] -> wait_ticks[1])++;
 
            // increment ticks
            //cprintf("[PID %d] has done running on level 3, ticks %d\n ", pp -> pid, pp -> ticks[3]);
-           (lv1[i] -> ticks[1])++;
-           if( (lv1[i] -> ticks[1]) >= LV1_TIME){
-               lv1[i] -> priority = 0;
+           (lv1[lv1i] -> ticks[1])++;
+           if( (lv1[lv1i] -> ticks[1]) >= LV1_TIME){
+               lv1[lv1i] -> priority = 0;
                // remove the proc from lv1
                // add the proc to lv0
-               dequeue(lv1, lv1_num, i);
-               lv0[lv0_num] = lv1[i];
+               dequeue(lv1, lv1_num, lv1i);
+               lv0[lv0_num] = lv1[lv1i];
                lv0_num++;
            }
            switchkvm();
@@ -534,36 +535,33 @@ SEARCH_1:for(int i = 0; i < lv1_num; i++ ){
         // It should have changed its p->state before coming back.
         proc = 0;
         //search again
-        //if lv3 is non empty, goto lv3
-        if(lv3_num > 0)
-            goto SEARCH_3;
-        //esle if lv3 is non empty, goto lv2
-        else if(lv2_num > 0)
-            goto SEARCH_2;
+        lv3i = 0;
+        lv2i = 0;
+        goto SEARCH;
     }
 
-    for(int i = 0; i < lv0_num; i++ ){
-        if(lv0[i] -> state != RUNNABLE)
+    for( ; lv0i < lv0_num; lv0i++ ){
+        if(lv0[lv0i] -> state != RUNNABLE)
             continue;
         
            // Switch to chosen process.  It is the process's job
            // to release ptable.lock and then reacquire it
            // before jumping back to us.
-           proc = lv0[i];
-           switchuvm(lv0[i]);
-           lv0[i]->state = RUNNING;
+           proc = lv0[lv0i];
+           switchuvm(lv0[lv0i]);
+           lv0[lv0i]->state = RUNNING;
            // while proc is RUNNING, keep scheduling it till it finishes (FIFO)
-           while(lv0[i] -> state == RUNNING){
+           while(lv0[lv0i] -> state == RUNNING){
                swtch(&cpu->scheduler, proc->context);
                // kernel regain control
                // clear the wait time for proc
-               lv0[i] -> wait_ticks[0] = 0;
+               lv0[lv0i] -> wait_ticks[0] = 0;
                // update wait time for other proc
-               check_promote(lv0[i]);
+               check_promote(lv0[lv0i]);
                // increment wait by 1 (See check_promote routine)
-               (lv0[i] -> wait_ticks[0])++;
+               (lv0[lv0i] -> wait_ticks[0])++;
                // increment ticks
-               (lv0[i] -> ticks[0])++;
+               (lv0[lv0i] -> ticks[0])++;
                switchkvm();
            }
 
@@ -571,14 +569,10 @@ SEARCH_1:for(int i = 0; i < lv1_num; i++ ){
         // It should have changed its p->state before coming back.
         proc = 0;
         //search again
-        //if lv3 is non empty, goto lv3
-        if(lv3_num > 0)
-            goto SEARCH_3;
-        //esle if lv2 is non empty, goto lv2
-        else if(lv2_num > 0)
-            goto SEARCH_2;
-        //else if lv1 is non empty, goto lv1
-            goto SEARCH_1;
+        lv3i = 0;
+        lv2i = 0;
+        lv1i = 0;
+        goto SEARCH;
     }
 
     /*
