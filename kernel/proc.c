@@ -729,18 +729,28 @@ procdump(void)
 int
 getpinfo(struct pstat* pstat)
 {
-    int i = 0;
-    int j = 0;
-    while(i < NPROC){
-        cprintf("Pid %d \n", pstat-> pid[i]);
-        while(j < NLAYER){
-            cprintf("Eclipsed timer ticks on pq %d is %d \n",j, pstat-> ticks[i][j]);
-            ++j;
+    struct proc *p;
+    int i;
+    // Fill in the pstat
+    acquire(&ptable.lock); 
+    for(int i = 0; i < NPROC; ++i){
+        p = &ptable.proc[i];
+        pstat -> pid[i] = p -> pid;
+        pstat -> priority[i] = p -> priority;
+        pstat -> state[i] = p -> state;
+
+        if(p -> state == UNUSED)
+            pstat -> inuse[i] = 0;
+        else
+            pstat -> inuse[i] = 1;
+
+        for(int j = 0; j < 4; ++j){
+            pstat -> ticks[i][j] = p -> ticks[j];
+            pstat -> wait_ticks[i][j] = p -> wait_ticks[j];
         }
-        cprintf("Proc on level  %d \n", pstat-> priority[i]);
-        cprintf("Proc state is  %d \n", pstat-> state[i]);
-        ++i;
     }
+    
+    release(&ptable.lock);
     return 1;
 }
 

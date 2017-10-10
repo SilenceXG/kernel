@@ -75,7 +75,7 @@ struct proc {
   struct inode *cwd;           // Current directory
   char name[16];               // Process name (debugging)
   // new fields
-  int inuse; // whether this slot of the process table is in use       (1 or 0)
+  //int inuse; // whether this slot of the process table is in use       (1 or 0)
   int priority; // current priority level (0-3)
   int ticks[NLAYER]; // num of ticks accumulated at each of 4 priorities
   int wait_ticks[NLAYER]; // num of ticks the proc has waited on each priorities.
