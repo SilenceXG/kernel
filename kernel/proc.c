@@ -420,8 +420,11 @@ scheduler(void)
 int lv3i = 0;
 int lv2i = 0;
 int lv1i = 0;
-
-SEARCH:for( ; lv3i < lv3_num; lv3i++){
+struct proc* prev; 
+int hit_prev = 0;
+SEARCH:
+    for( ; lv3i < lv3_num; lv3i++){
+         int hit_prev = 0;
          if(lv3[lv3i] -> state != RUNNABLE)
              continue;
          // Switch to chosen process.  It is the process's job
