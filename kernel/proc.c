@@ -7,6 +7,7 @@
 #include "spinlock.h"
 #include "pstat.h"
 
+
 struct {
   struct spinlock lock;
   struct proc proc[NPROC];
@@ -71,18 +72,20 @@ allocproc(void)
 found:
   p->state = EMBRYO;
   p->pid = nextpid++;
- /*
+// /*
   //modified for MLFQ
   p -> priority = 3;
   for(int i = 0; i < NLAYER; ++i){
       p -> ticks[i] = 0;
       p -> wait_ticks[i] = 0;
+      p -> ticks_op[i] = 0;
+      p -> wait_ticks_op[i] = 0;
   }
+  /*
   // we add newly arrived proc to q3
   lv3[lv3_num] = p;
   lv3_num++;
-  //
-  */
+  // */
 
   release(&ptable.lock);
 
@@ -137,12 +140,14 @@ userinit(void)
   p->cwd = namei("/");
 
   p->state = RUNNABLE;
+  /*
   //modified for MLFQ
   p -> priority = 3;
   for(int i = 0; i < NLAYER; ++i){
       p -> ticks[i] = 0;
       p -> wait_ticks[i] = 0;
   }
+  */
   // we add newly arrived proc to q3
   lv3[lv3_num] = p;
   lv3_num++;
@@ -206,12 +211,14 @@ fork(void)
  
   pid = np->pid;
   np->state = RUNNABLE;
+  /*
   //modified for MLFQ
   np -> priority = 3;
   for(int i = 0; i < NLAYER; ++i){
       np -> ticks[i] = 0;
       np -> wait_ticks[i] = 0;
   }
+  */
   // we add newly arrived proc to q3
   lv3[lv3_num] = np;
   lv3_num++;
@@ -313,19 +320,25 @@ check_promote(struct proc* proc){
     // The wait time of proc shouldn't be incremented at all
     // However, for simplicity, the procs wait_ticks will be incremented to one with following loops
     // Which doesn't matter since time_ticks == 1 doesn't trigger any promotion
-    // We decrement the proc's waiting time when exitting the routine to compensate it
+    // We clear the proc's waiting time again when exitting the routine to compensate it
     
     // update lv3, no need to promoted
     for(int i = 0; i < lv3_num; ++i){
         (lv3[i] -> wait_ticks[3])++;
+        (lv3[i] -> wait_ticks_op[3])++;
     }
 
     // update lv2
     for(int i = 0; i < lv2_num; ++i){
         (lv2[i] -> wait_ticks[2])++;
+        (lv2[i] -> wait_ticks_op[2])++;
         // if the wait time is greater than 10 * LV2_TIME, promote
-        if( (lv2[i] -> wait_ticks[2]) >= 10 * LV2_TIME ){
+        if( (lv2[i] -> wait_ticks_op[2]) >= 10 * LV2_TIME ){
             (lv2[i] -> priority)++;
+            cprintf("lv2 promote to lv3\n");
+            // clear ticks and wait_ticks of the prev priority
+            (lv2[i] -> ticks_op[2]) = 0;
+            (lv2[i] -> wait_ticks_op[2]) = 0;
             // remove process from lv2, put it to lv3
             lv3[lv3_num] = lv2[i];
             lv3_num++;
@@ -336,9 +349,13 @@ check_promote(struct proc* proc){
     // update lv1
     for(int i = 0; i < lv1_num; ++i){
         (lv1[i] -> wait_ticks[1])++;
+        (lv1[i] -> wait_ticks_op[1])++;
         // if the wait time is greater than 10 * LV1_TIME, promote
-        if( (lv1[i] -> wait_ticks[1]) >= 10 * LV1_TIME ){
+        if( (lv1[i] -> wait_ticks_op[1]) >= 10 * LV1_TIME ){
             (lv1[i] -> priority)++;
+            // clear ticks and wait_ticks of the prev priority
+            (lv1[i] -> ticks_op[1]) = 0;
+            (lv1[i] -> wait_ticks_op[1]) = 0;
             // remove process from lv1, put it to lv2
             lv2[lv2_num] = lv1[i];
             lv2_num++;
@@ -349,9 +366,13 @@ check_promote(struct proc* proc){
     // update lv0
     for(int i = 0; i < lv0_num; ++i){
         (lv0[i] -> wait_ticks[0])++;
+        (lv0[i] -> wait_ticks_op[0])++;
         // if the wait time is greater than 500, promote
-        if( (lv0[i] -> wait_ticks[0]) >= 500 ){
+        if( (lv0[i] -> wait_ticks_op[0]) >= 500 ){
             (lv0[i] -> priority)++;
+            // clear ticks and wait_ticks of the prev priority
+            (lv0[i] -> ticks_op[0]) = 0;
+            (lv0[i] -> wait_ticks_op[0]) = 0;
             // remove process from lv0, put it to lv1
             lv1[lv1_num] = lv0[i];
             lv1_num++;
@@ -390,7 +411,11 @@ scheduler(void)
     
     // Loop over process table looking for process to run.
     acquire(&ptable.lock);
+   // for(//in ptatble){
+        // if you find a runnable
+        // add to lv3
     
+    //}
     // search four priority queue until find a runnable proc
     // search lv3 first
     // if find, execute 
@@ -402,6 +427,7 @@ scheduler(void)
          // Switch to chosen process.  It is the process's job
          // to release ptable.lock and then reacquire it
          // before jumping back to us.
+            //int temp_ticks = 0;
             proc = lv3[lv3i];
             switchuvm(lv3[lv3i]);
             lv3[lv3i]->state = RUNNING;
@@ -410,32 +436,54 @@ scheduler(void)
             // kernel regain control
             // 
             // clear the wait time for proc
+            lv3[lv3i] -> wait_ticks_op[3] = 0;
             lv3[lv3i] -> wait_ticks[3] = 0;
             // update wait time for other proc
             check_promote(lv3[lv3i]);
             // increment wait by 1 (See check_promote routine)
-            (lv3[lv3i] -> wait_ticks[3])++;
+            lv3[lv3i] -> wait_ticks_op[3] = 0;
+            lv3[lv3i] -> wait_ticks[3] = 0;
 
+            // increment ticks
+            //cprintf("[PID %d] has done running on level 3, ticks %d\n ", pp -> pid, pp -> ticks[3]);
+            (lv3[lv3i] -> ticks_op[3])++;
+            (lv3[lv3i] -> ticks[3])++;
+
+            /*
             // check if proc is not RUNNABLE
             // if not, deque from lv3
-            // No need to change proc's field because it is not in 
-            // the queue
             if(lv3[lv3i] -> state != RUNNABLE){
                 dequeue(lv3, lv3_num, lv3i);
                 lv3_num--;
                 proc = 0;
                 continue;
             }
+            */
 
-            // increment ticks
-            //cprintf("[PID %d] has done running on level 3, ticks %d\n ", pp -> pid, pp -> ticks[3]);
-            (lv3[lv3i] -> ticks[3])++;
-            if( (lv3[lv3i] -> ticks[3]) >= LV3_TIME){
+            if( (lv3[lv3i] -> ticks_op[3]) >= LV3_TIME){
                 lv3[lv3i] -> priority = 2;
+                lv3[lv3i] -> ticks_op[3] = 0;
+                lv3[lv3i] -> wait_ticks_op[3] = 0;
+                lv3[lv3i] -> wait_ticks[3] = 0;
+                // check if proc is not RUNNABLE
+                // if not, deque from lv3
+                if(lv3[lv3i] -> state != RUNNABLE){
+                    dequeue(lv3, lv3_num, lv3i);
+                    lv3_num--;
+                    proc = 0;
+                    continue;
+                }
                 // add the proc to lv2
                 // remove the proc from lv3
                 lv2[lv2_num] = lv3[lv3i];
                 lv2_num++;
+                dequeue(lv3, lv3_num, lv3i);
+                lv3_num--;
+                //
+            }
+            // check if proc is not RUNNABLE
+            // if not, deque from lv3
+            else if(lv3[lv3i] -> state != RUNNABLE){
                 dequeue(lv3, lv3_num, lv3i);
                 lv3_num--;
             }
@@ -459,32 +507,54 @@ scheduler(void)
            // kernel regain control
            // 
            // clear the wait time for proc
+           lv2[lv2i] -> wait_ticks_op[2] = 0;
            lv2[lv2i] -> wait_ticks[2] = 0;
            // update wait time for other proc
            check_promote(lv2[lv2i]);
            // increment wait by 1 (See check_promote routine)
-           (lv2[lv2i] -> wait_ticks[2])++;
+           lv2[lv2i] -> wait_ticks_op[2] = 0;
+           lv2[lv2i] -> wait_ticks[2] = 0;
+           // increment ticks
+           (lv2[lv2i] -> ticks_op[2])++;
+           (lv2[lv2i] -> ticks[2])++;
            // check if proc is not RUNNABLE
            // if not, deque from lv1
-           // No need to change any field because
-           // it is not in any queue
+           /*
            if(lv2[lv2i] -> state != RUNNABLE){
                 dequeue(lv2, lv2_num, lv2i);
                 lv2_num--;
                 proc = 0;
                 goto SEARCH;
            }
+           */
 
-           // increment ticks
-           (lv2[lv2i] -> ticks[2])++;
-           if( (lv2[lv2i] -> ticks[2]) >= LV2_TIME){
+           if( (lv2[lv2i] -> ticks_op[2]) >= LV2_TIME){
+               // de-mote proc priority
                lv2[lv2i] -> priority = 1;
+               lv2[lv2i] -> ticks_op[2] = 0;
+               lv2[lv2i] -> wait_ticks_op[2] = 0;
+               lv2[lv2i] -> wait_ticks[2] = 0;
+               // check if proc is not RUNNABLE
+               // if not, deque from lv2
+               if(lv2[lv2i] -> state != RUNNABLE){
+                   dequeue(lv2, lv2_num, lv2i);
+                   lv2_num--;
+                   proc = 0;
+                   continue;
+               }
                // add the proc to lv1
                // remove the proc from lv2
                lv1[lv1_num] = lv2[lv2i];
                lv1_num++;
                dequeue(lv2, lv2_num, lv2i);
                lv2_num--;
+           }
+               //
+               // check if proc is not RUNNABLE
+            // if not, deque from lv1
+           else if(lv2[lv2i] -> state != RUNNABLE){
+                dequeue(lv2, lv2_num, lv2i);
+                lv2_num--;
            }
         // Process is done running for now.
         // It should have changed its p->state before coming back.
@@ -507,32 +577,54 @@ scheduler(void)
            // kernel regain control
            //
            // clear the wait time for proc
+           lv1[lv1i] -> wait_ticks_op[1] = 0;
            lv1[lv1i] -> wait_ticks[1] = 0;
            // update wait time for other proc
            check_promote(lv1[lv1i]);
            // increment wait by 1 (See check_promote routine)
-           (lv1[lv1i] -> wait_ticks[1])++;
+           lv1[lv1i] -> wait_ticks_op[1] = 0;
+           lv1[lv1i] -> wait_ticks[1] = 0;
+           // increment ticks
+           (lv1[lv1i] -> ticks_op[1])++;
+           (lv1[lv1i] -> ticks[1])++;
 
+           /*
            // check if proc is not RUNNABLE
            // if not, deque from lv1
-           // No need to change any field because
-           // it is not in any queue
            if(lv1[lv1i] -> state != RUNNABLE){
                 dequeue(lv1, lv1_num, lv1i);
                 lv1_num--;
                 proc = 0;
                 goto SEARCH;
            }
-           // increment ticks
-           (lv1[lv1i] -> ticks[1])++;
-           if( (lv1[lv1i] -> ticks[1]) >= LV1_TIME){
+           */
+           if( (lv1[lv1i] -> ticks_op[1]) >= LV1_TIME){
+               // de-mote proc priority
                lv1[lv1i] -> priority = 0;
+               lv1[lv1i] -> ticks_op[1] = 0;
+               lv1[lv1i] -> wait_ticks_op[1] = 0;
+               lv1[lv1i] -> wait_ticks[1] = 0;
+               // check if proc is not RUNNABLE
+               // if not, deque from lv2
+               if(lv1[lv1i] -> state != RUNNABLE){
+                   dequeue(lv1, lv1_num, lv1i);
+                   lv1_num--;
+                   proc = 0;
+                   continue;
+               }
+
                // add the proc to lv0
                // remove the proc from lv1
                lv0[lv0_num] = lv1[lv1i];
                lv0_num++;
                dequeue(lv1, lv1_num, lv1i);
                lv1_num--;
+           }
+           // check if proc is not RUNNABLE
+           // if not, deque from lv1
+           else if(lv1[lv1i] -> state != RUNNABLE){
+                dequeue(lv1, lv1_num, lv1i);
+                lv1_num--;
            }
         // Process is done running for now.
         // It should have changed its p->state before coming back.
@@ -544,10 +636,12 @@ scheduler(void)
     }
 
     // every time in lv0, start with the first proc (FIFO)
-    for(int lv0i = 0; lv0i < lv0_num; lv0i++){
+    while(lv0_num > 0){
+    //for(int lv0i = 0; lv0i < lv0_num; lv0i++){
            // Switch to chosen process.  It is the process's job
            // to release ptable.lock and then reacquire it
            // before jumping back to us.
+           int lv0i = 0;
            proc = lv0[lv0i];
            switchuvm(lv0[lv0i]);
            lv0[lv0i]->state = RUNNING;
@@ -555,14 +649,16 @@ scheduler(void)
            swtch(&cpu->scheduler, proc->context);
            switchkvm();
            // kernel regain control
-           // set prev to curr proc
-           // prev = lv0[lv0i];
            // clear the wait time for proc
+           lv0[lv0i] -> wait_ticks_op[0] = 0;
            lv0[lv0i] -> wait_ticks[0] = 0;
            // update wait time for other proc
            check_promote(lv0[lv0i]);
            // increment wait by 1 (See check_promote routine)
-           (lv0[lv0i] -> wait_ticks[0])++;
+           lv0[lv0i] -> wait_ticks_op[0] = 0;
+           // increment ticks
+           (lv0[lv0i] -> ticks_op[0])++;
+           (lv0[lv0i] -> ticks[0])++;
            // check if proc is not RUNNABLE
            // if not, deque from lv0
            if(lv0[lv0i] -> state != RUNNABLE){
@@ -571,9 +667,6 @@ scheduler(void)
                 proc = 0;
                 goto SEARCH;
            }
-           // increment ticks
-           (lv0[lv0i] -> ticks[0])++;
-
         // Process is done running for now.
         // It should have changed its p->state before coming back.
         proc = 0;
@@ -612,6 +705,7 @@ yield(void)
 {
   acquire(&ptable.lock);  //DOC: yieldlock
   proc->state = RUNNABLE;
+
   sched();
   release(&ptable.lock);
 }
@@ -674,14 +768,30 @@ wakeup1(void *chan)
   for(p = ptable.proc; p < &ptable.proc[NPROC]; p++)
     if(p->state == SLEEPING && p->chan == chan){
       p->state = RUNNABLE;
+   /*
       p -> priority = 3;
       for(int i = 0; i < NLAYER; ++i){
          p -> ticks[i] = 0;
         p -> wait_ticks[i] = 0;
       }
-      // we add newly arrived proc to q3
-      lv3[lv3_num] = p;
-      lv3_num++;
+      */
+      // we add newly arrived proc to its priority level
+      if(p -> priority == 3){
+        lv3[lv3_num] = p;
+        lv3_num++;
+      }
+      else if(p -> priority == 2){
+        lv2[lv2_num] = p;
+        lv2_num++;
+      }
+      else if(p -> priority == 1){
+        lv1[lv1_num] = p;
+        lv1_num++;
+      }
+      else if(p -> priority == 0){
+        lv0[lv0_num] = p;
+        lv0_num++;
+      }
     }
 }
 
@@ -709,6 +819,7 @@ kill(int pid)
       // Wake process from sleep if necessary.
       if(p->state == SLEEPING){
         p->state = RUNNABLE;
+       /*
         p -> priority = 3;
         for(int i = 0; i < NLAYER; ++i){
             p -> ticks[i] = 0;
@@ -717,6 +828,7 @@ kill(int pid)
         // we add newly arrived proc to q3
         lv3[lv3_num] = p;
         lv3_num++;
+        */
       }
       release(&ptable.lock);
       return 0;
