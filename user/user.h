@@ -3,6 +3,7 @@
 
 struct stat;
 struct pstat;
+enum procstate { UNUSED, EMBRYO, SLEEPING, RUNNABLE, RUNNING, ZOMBIE };
 
 // system calls
 int fork(void);
