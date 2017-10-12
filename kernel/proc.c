@@ -81,11 +81,6 @@ found:
       p -> ticks_op[i] = 0;
       p -> wait_ticks_op[i] = 0;
   }
-  /*
-  // we add newly arrived proc to q3
-  lv3[lv3_num] = p;
-  lv3_num++;
-  // */
 
   release(&ptable.lock);
 
@@ -140,18 +135,6 @@ userinit(void)
   p->cwd = namei("/");
 
   p->state = RUNNABLE;
-  /*
-  //modified for MLFQ
-  p -> priority = 3;
-  for(int i = 0; i < NLAYER; ++i){
-      p -> ticks[i] = 0;
-      p -> wait_ticks[i] = 0;
-  }
-  */
-  // we add newly arrived proc to q3
-  lv3[lv3_num] = p;
-  lv3_num++;
- //
  //*/ 
 
   release(&ptable.lock);
@@ -211,17 +194,6 @@ fork(void)
  
   pid = np->pid;
   np->state = RUNNABLE;
-  /*
-  //modified for MLFQ
-  np -> priority = 3;
-  for(int i = 0; i < NLAYER; ++i){
-      np -> ticks[i] = 0;
-      np -> wait_ticks[i] = 0;
-  }
-  */
-  // we add newly arrived proc to q3
-  lv3[lv3_num] = np;
-  lv3_num++;
 
   safestrcpy(np->name, proc->name, sizeof(proc->name));
   return pid;
@@ -404,6 +376,7 @@ dequeue(struct proc** pq, int pq_num, int index){
 void
 scheduler(void)
 {
+  struct proc *p;
   for(;;){
       // Enable interrupts on this processor.
     sti();
@@ -411,11 +384,15 @@ scheduler(void)
     
     // Loop over process table looking for process to run.
     acquire(&ptable.lock);
-   // for(//in ptatble){
+    for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
+        if(p->state != RUNNABLE)
+            continue;
         // if you find a runnable
         // add to lv3
-    
-    //}
+        lv3[lv3_num] = p;
+        lv3_num++;
+    }
+
     // search four priority queue until find a runnable proc
     // search lv3 first
     // if find, execute 
@@ -637,7 +614,6 @@ scheduler(void)
 
     // every time in lv0, start with the first proc (FIFO)
     while(lv0_num > 0){
-    //for(int lv0i = 0; lv0i < lv0_num; lv0i++){
            // Switch to chosen process.  It is the process's job
            // to release ptable.lock and then reacquire it
            // before jumping back to us.
@@ -705,25 +681,6 @@ yield(void)
 {
   acquire(&ptable.lock);  //DOC: yieldlock
   proc->state = RUNNABLE;
-
-      // we add newly arrived proc to its priority level
-      if(proc-> priority == 3){
-        lv3[lv3_num] = proc;
-        lv3_num++;
-      }
-      else if(proc -> priority == 2){
-        lv2[lv2_num] =proc;
-        lv2_num++;
-      }
-      else if(proc -> priority == 1){
-        lv1[lv1_num] = proc;
-        lv1_num++;
-      }
-      else if(proc -> priority == 0){
-        lv0[lv0_num] = proc;
-        lv0_num++;
-      }
-  //
   sched();
   release(&ptable.lock);
 }
@@ -786,14 +743,6 @@ wakeup1(void *chan)
   for(p = ptable.proc; p < &ptable.proc[NPROC]; p++)
     if(p->state == SLEEPING && p->chan == chan){
       p->state = RUNNABLE;
-   /*
-      p -> priority = 3;
-      for(int i = 0; i < NLAYER; ++i){
-         p -> ticks[i] = 0;
-        p -> wait_ticks[i] = 0;
-      }
-      */
-      // we add newly arrived proc to its priority level
       if(p -> priority == 3){
         lv3[lv3_num] = p;
         lv3_num++;
@@ -856,16 +805,6 @@ kill(int pid)
         lv0_num++;
       }
       */
-       /*
-        p -> priority = 3;
-        for(int i = 0; i < NLAYER; ++i){
-            p -> ticks[i] = 0;
-            p -> wait_ticks[i] = 0;
-        }
-        // we add newly arrived proc to q3
-        lv3[lv3_num] = p;
-        lv3_num++;
-        */
       }
       release(&ptable.lock);
       return 0;
