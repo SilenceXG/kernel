@@ -706,6 +706,24 @@ yield(void)
   acquire(&ptable.lock);  //DOC: yieldlock
   proc->state = RUNNABLE;
 
+      // we add newly arrived proc to its priority level
+      if(proc-> priority == 3){
+        lv3[lv3_num] = proc;
+        lv3_num++;
+      }
+      else if(proc -> priority == 2){
+        lv2[lv2_num] =proc;
+        lv2_num++;
+      }
+      else if(proc -> priority == 1){
+        lv1[lv1_num] = proc;
+        lv1_num++;
+      }
+      else if(proc -> priority == 0){
+        lv0[lv0_num] = proc;
+        lv0_num++;
+      }
+  //
   sched();
   release(&ptable.lock);
 }
@@ -819,6 +837,25 @@ kill(int pid)
       // Wake process from sleep if necessary.
       if(p->state == SLEEPING){
         p->state = RUNNABLE;
+        /*
+      // we add newly arrived proc to its priority level
+      if(p -> priority == 3){
+        lv3[lv3_num] = p;
+        lv3_num++;
+      }
+      else if(p -> priority == 2){
+        lv2[lv2_num] = p;
+        lv2_num++;
+      }
+      else if(p -> priority == 1){
+        lv1[lv1_num] = p;
+        lv1_num++;
+      }
+      else if(p -> priority == 0){
+        lv0[lv0_num] = p;
+        lv0_num++;
+      }
+      */
        /*
         p -> priority = 3;
         for(int i = 0; i < NLAYER; ++i){
